@@ -26,7 +26,7 @@ const sondageSlice = createSlice({
     resetSondageState: (state) => {
       state.lienSondagesStockes = initialState.lienSondagesStockes;
       state.sondageId = initialState.sondageId;
-    },
+    },    
   },
 });
 

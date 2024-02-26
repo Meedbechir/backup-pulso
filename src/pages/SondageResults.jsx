@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { selectToken } from "../components/features/AuthSlice";
+import { selectToken, selectUserId } from "../components/features/AuthSlice";
 import { useSelector } from "react-redux";
-import { selectSondageId } from "../components/features/SondageSlices";
+import { selectSondageId, selectLienSondageStockes } from "../components/features/SondageSlices";
 
 const SondageResults = () => {
   const [results, setResults] = useState([]);
   const sondageIdsFromRedux = useSelector(selectSondageId);
   const token = useSelector(selectToken);
+  const user_id = useSelector(selectUserId);
+  const lienSondagesStockes = useSelector(selectLienSondageStockes);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -17,23 +19,27 @@ const SondageResults = () => {
           return;
         }
 
+        const resultsData = {};
+
         // Use Promise.all to make requests for all sondage IDs concurrently
-        const requests = sondageIdsFromRedux.map(async (sondageId) => {
-          return axios.get(
-            `https://pulso-backend.onrender.com/api/sondages/${sondageId}/resultats/`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+        await Promise.all(
+          sondageIdsFromRedux.map(async (sondageId) => {
+            // Filter your sondage IDs based on user_id and owner
+            const sondage = lienSondagesStockes.find(s => s.sondageId === sondageId);
+            if (sondage && sondage.owner === user_id) {
+              const response = await axios.get(
+                `https://pulso-backend.onrender.com/api/sondages/${sondageId}/resultats/`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+
+              resultsData[sondageId] = response.data;
             }
-          );
-        });
-
-        // Use Promise.all to wait for all requests to complete
-        const responses = await Promise.all(requests);
-
-        // Handle responses as needed
-        const resultsData = responses.map((response) => response.data);
+          })
+        );
 
         setResults(resultsData);
       } catch (error) {
@@ -42,7 +48,7 @@ const SondageResults = () => {
     };
 
     fetchResults();
-  }, [sondageIdsFromRedux, token]);
+  }, [sondageIdsFromRedux, token, user_id, lienSondagesStockes]);
 
   if (!token) {
     return (
@@ -52,7 +58,7 @@ const SondageResults = () => {
     );
   }
 
-  if (!results || results.length === 0) {
+  if (Object.keys(results).length === 0) {
     return (
       <div className="text-center text-gray-400 text-2xl font-bold mt-40">
         Aucun résultat disponible pour ces sondages.
@@ -60,18 +66,26 @@ const SondageResults = () => {
     );
   }
 
-  // Process and render results for each sondage ID
-  const resultComponents = results.map((result, index) => {
-    const { sondage_id, answers } = result;
+  const resultComponents = Object.entries(results).map(([sondageId, result]) => {
+    const { answers } = result;
 
     const pourcentageOptions = {};
-    answers.forEach((answer) => {
-      if (pourcentageOptions[answer.choix]) {
-        pourcentageOptions[answer.choix]++;
-      } else {
-        pourcentageOptions[answer.choix] = 1;
-      }
-    });
+
+    if (Array.isArray(answers)) {
+      answers.map((answer) => {
+        const choix = answer.choix;
+
+        if (pourcentageOptions[choix]) {
+          pourcentageOptions[choix]++;
+        } else {
+          pourcentageOptions[choix] = 1;
+        }
+
+        return null;
+      });
+    } else {
+      console.error("Answers is not an array:", answers);
+    }
 
     const totalVotes = answers.length;
 
@@ -106,16 +120,15 @@ const SondageResults = () => {
 
     return (
       <>
-      <div className="flex align-center text-center gap-12 justify-center flex-col font-sans mb-12">
-      <div key={index} className="">
-        <h1 className="text-2xl font-bold mb-4">
-          Résultats du Sondage {sondage_id}
-        </h1>
-        <div className="options-container">{graphiqueOptionBar}</div>
-      </div>
-      </div>
+        <div className="flex align-center text-center gap-12 justify-center flex-col font-sans mb-12">
+          <div key={sondageId} className="">
+            <h1 className="text-2xl font-bold mb-4">
+              Résultats du Sondage {sondageId}
+            </h1>
+            <div className="options-container">{graphiqueOptionBar}</div>
+          </div>
+        </div>
       </>
-
     );
   });
 

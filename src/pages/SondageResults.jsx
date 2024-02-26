@@ -6,6 +6,7 @@ import { selectSondageId, selectLienSondageStockes } from "../components/feature
 
 const SondageResults = () => {
   const [results, setResults] = useState([]);
+  const [sondageQuestions, setSondageQuestions] = useState({});
   const sondageIdsFromRedux = useSelector(selectSondageId);
   const token = useSelector(selectToken);
   const user_id = useSelector(selectUserId);
@@ -20,13 +21,22 @@ const SondageResults = () => {
         }
 
         const resultsData = {};
+        const questionsData = {};
 
-        // Use Promise.all to make requests for all sondage IDs concurrently
         await Promise.all(
           sondageIdsFromRedux.map(async (sondageId) => {
-            // Filter your sondage IDs based on user_id and owner
             const sondage = lienSondagesStockes.find(s => s.sondageId === sondageId);
             if (sondage && sondage.owner === user_id) {
+              const questionResponse = await axios.get(
+                `https://pulso-backend.onrender.com/api/sondages/${sondageId}/`,
+                {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+              );
+              questionsData[sondageId] = questionResponse.data.question;
+
               const response = await axios.get(
                 `https://pulso-backend.onrender.com/api/sondages/${sondageId}/resultats/`,
                 {
@@ -42,6 +52,7 @@ const SondageResults = () => {
         );
 
         setResults(resultsData);
+        setSondageQuestions(questionsData);
       } catch (error) {
         console.error("Erreur:", error);
       }
@@ -68,6 +79,7 @@ const SondageResults = () => {
 
   const resultComponents = Object.entries(results).map(([sondageId, result]) => {
     const { answers } = result;
+    const question = sondageQuestions[sondageId];
 
     const pourcentageOptions = {};
 
@@ -119,16 +131,12 @@ const SondageResults = () => {
     ));
 
     return (
-      <>
-        <div className="flex align-center text-center gap-12 justify-center flex-col font-sans mb-12">
-          <div key={sondageId} className="">
-            <h1 className="text-2xl font-bold mb-4">
-              Résultats du Sondage {sondageId}
-            </h1>
-            <div className="options-container">{graphiqueOptionBar}</div>
-          </div>
-        </div>
-      </>
+      <div key={sondageId} className="flex align-center justify-center flex-col mt-10">
+        <h1 className="text-2xl text-center font-bold mb-4">
+          Résultats du Sondage : {question}
+        </h1>
+        <div className="options-container">{graphiqueOptionBar}</div>
+      </div>
     );
   });
 

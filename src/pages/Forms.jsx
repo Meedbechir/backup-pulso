@@ -76,7 +76,7 @@ const Forms = () => {
 
       if (res && res.status === 201) {
         const { slug, id: sondageId, owner: userId } = res.data;
-        const lienSondage = `https://test-vercel-deploy-pearl.vercel.app/sondages/${slug}`;
+        const lienSondage = `https://backup-pulso.vercel.app/sondages/${slug}`;
   
         dispatch(setLienSondageStockes({ sondageId, lien: lienSondage, owner: userId }));
         dispatch(setSondageId([sondageId]));
